@@ -1,0 +1,481 @@
+---
+title: "Bank Marketing Exploratory Data Analysis and Visualization"
+author: "Nabila Azarin Balqis"
+date: "`r format(Sys.Date(), '%B %e, %Y')`"
+output: 
+  rmdformats::readthedown
+---
+
+```{r setup, include=FALSE}
+# clear-up the environment
+rm(list = ls())
+
+# chunk options
+knitr::opts_chunk$set(
+  message = FALSE,
+  warning = FALSE,
+  fig.align = "center",
+  comment = "#>"
+)
+
+options(scipen = 100)
+```
+
+
+```{r echo=FALSE, out.width="10%"}
+knitr::include_graphics("telemarketing.png")
+```
+
+## 1 Introduction
+Data Bank Marketing adalah data yang terkait dengan pemasaran langsung yang didasarkan pada panggilan telepon.Adapun data tersebut memiliki tujuan untuk memprediksi apakah nasabah akan berlangganan deposito berjangka atau tidak.
+
+
+## 2 Data Preparation
+Data Preparation adalah proses menyiapkan data mentah agar dapat diproses dan dianalisis lebih lanjut.
+
+### 2.1 Importing Libraries
+Langkah pertama dalam data preparation yaitu memanggil seluruh package yang akan digunakan.
+```{r}
+# Data Processing
+library(lubridate)
+# Data Wrangling
+library(tidyr)
+library(stringr)
+library(tidyverse)
+# Visualization
+library(ggplot2)
+library(grid)
+library(shadowtext)
+library(gridExtra)
+library(ggstatsplot)
+library(plotly)
+```
+
+### 2.2 Importing Datasets
+Inspeksi data menggunakan `head` setelah import dataset diperlukan untuk identifikasi awal mengenai kolom dari dataset.
+```{r}
+bmdat <- read.csv("bank.csv", sep = ';', header = TRUE)
+head(bmdat)
+```
+Berdasarkan hasil inspeksi data, terdapat 17 kolom yang berisikan variabel dengan deskripsi sebagai berikut:
+1. age : Usia Pelanggan
+2. job : Jenis pekerjaan 
+3. marital : Status pernikahan 
+4. education : Pendidikan
+5. default : Status gagal bayar kredit
+6. balance : Rata-rata saldo tahunan
+7. housing : Kepemilikan pinjaman rumah
+8. loan : Kepemilikan pinjaman pribadi
+9. contact :Jenis kontak komunikasi
+10. day_of_week : Hari terakhir kontak dalam seminggu
+11. month : Bulan terakhir kontak dalam setahun
+12. duration : Durasi kontak terakhir dalam detik
+13. campaign : Jumlah kontak yang dilakukan selama kampanye
+14. pdays : Jumlah hari yang berlalu setelah klien terakhir dihubungi dari kampanye sebelumnya 15. previous :Jumlah kontak yang dilakukan sebelum kampanye
+16. poutcome : Hasil kampanye pemasaran sebelumnya
+17. y : Status berlangganan deposito berjangka
+
+
+## 3 Data Processing
+Data preprocessing adalah proses mengubah data mentah menjadi format yang lebih mudah dipahami.
+
+### 3.1 Duplicates
+Langkah pertama adalah melakukan pengecekan data duplikat.
+```{r}
+sum(duplicated(bmdat))
+```
+Berdasarkan hasil pengecekan, tidak ditemukan data yang terduplikat.
+
+### 3.2 Missing Values
+Langkah selanjutnya adalah melakukan pengecekan missing values.
+```{r}
+str(bmdat)
+```
+```{r}
+colSums(is.na(x=bmdat))
+```
+Berdasarkan hasil pengecekan, tidak ditemukan data yang hilang atau kosong.
+
+### 3.3 Data Types
+Selanjutnya dilakukan pengecekan tipe data. 
+```{r}
+str(bmdat)
+```
+Variabel yang memiliki tipe data tidak sesuai dan perlu disesuaikan:
+1. Job, Marital, Education, Default, Housing, Loan, Contact, Poutcom, Y : Kategorik
+2.Month, Day : Date 
+Berikut akan dilakukan perubahan tipe data untuk data kategorik.
+
+```{r}
+cols <- c("job","marital","education","default", "housing", "loan","contact","poutcome", "y")
+bmdat[cols] = lapply(X=bmdat[cols], FUN = as.factor)
+head(bmdat[cols])
+```
+
+Selanjutnya dilakukan perubahan tipe data Date. 
+```{r}
+unique(bmdat$month)
+```
+```{r}
+unique(bmdat$day)
+```
+
+```{r}
+bmdat['day_month'] = paste(bmdat$day, bmdat$month, '2012', sep=" ")
+head(bmdat$day_month)
+```
+
+```{r}
+bmdat$day_month <-dmy(bmdat$day_month)
+head(bmdat$day_month)
+```
+```{r}
+bmdat['year_month'] <-substr(bmdat$day_month,1,7)
+head(bmdat$year_month)
+```
+```{r}
+bmdat$year_month <- as.Date(paste0(as.character(bmdat$year_month), "-01"), format = "%Y-%m-%d")
+head(bmdat$year_month)
+```
+
+```{r}
+str(bmdat)
+```
+
+
+
+## 4 Exploratory Data Analysis
+Exploratory Data Analysis (EDA) adalah proses awal untuk menyelidiki data guna mengidentifikasi pola, menemukan anomali, dan menguji hipotesis. 
+### 4.1 Statistika Deskriptif
+Statistika deskriptif digunakan untuk menggambarkan atau menjelaskan karakteristik data yang telah terkumpul.
+```{r}
+summary(bmdat)
+```
+```{r}
+cols_2 <- c("age","balance","duration","campaign","pdays","previous")
+boxdat <- bmdat[cols_2]
+# Light gray background
+plot.new()
+rect(par("usr")[1], par("usr")[3], par("usr")[2], par("usr")[4],
+     col = "#ebebeb")
+
+# Add white grid
+grid(nx = NULL, ny = NULL, col = "white", lty = 1,lwd = par("lwd"), equilogs = TRUE)
+
+# Boxplot
+par(new=TRUE)
+boxplot(boxdat, col = "grey", xlab = "Numeric Var", ylab = "Value", main = "Numeric Var Boxplot")
+```
+Boxplot digunakan untuk melihat adanya pencilan dari variabel.
+```{r}
+# Add Col 
+bmdat['freq'] = cbind(matrix(1,4521,1))
+head(bmdat$freq)
+```
+
+
+
+## 5 Exploratory Visualization
+Explanatory visualization adalah bagan atau grafik yang digunakan untuk menjelaskan hasil analisis data kepada orang lain.
+
+### 1 Marketing Campaigns by Date
+Visualisasi pertama ini bertujuan untuk melihat bagaimana pola jumlah kampanye setiap harinya. 
+```{r}
+# Persebaran by Day
+freq_day = as.data.frame(table(bmdat$day_month))
+freq_day$Var1 <- ymd(freq_day$Var1)
+plot(x = freq_day$Var1, y = freq_day$Freq, type = 'l', main = "Marketing Campaigns by Date", xlab = 'Date', ylab = 'Number of Clients')
+```
+Plot tersebut memiliki pola yang fluktuatif dan memiliki varians yang tinggi.
+
+### 2 Marketing Campaigns by Month
+Visualisasi kedua ini bertujuan untuk melihat bagaimana pola jumlah kampanye setiap bulan 
+```{r}
+# Persebaran by Month
+freq_month = as.data.frame(table(bmdat$year_month))
+freq_month$Var1 <- ymd(freq_month$Var1)
+plot(x = freq_month$Var1, y = freq_month$Freq, type = 'l', main = "Marketing Campaigns by Month", xlab = 'Date', ylab = 'Number of Clients')
+```
+Pada plot bulanan, dapat dilihat terdapat kenaikan signifikan pada bulan Mei. Hal ini dapat dijadikan informasi pertama yang bermanfaat untuk analisa selanjutnya.
+
+### 3 Term Deposit Proportion
+Visualisasi ketiga merupakan visualisasi untuk melihat seberapa besar proporsi pelanggan yang telah berlangganan deposito berjangka. 
+Setting warna:
+```{r}
+# The colors
+BLUE <- "#076fa2"
+RED <- "#E3120B"
+BLACK <- "#202020"
+GREY <- "grey50"
+```
+```{r}
+plot1 <- ggplot(bmdat, aes(x = y, fill = y)) +
+geom_bar(position = "dodge", fill = c("#e5001c", "darkblue"), color = c("#e5001c", "darkblue")) +
+      coord_flip() +
+      geom_text(aes(label = paste(round(..count../nrow(bmdat)*100,2), "%")),
+                stat = "count",
+                position = 'dodge',
+                hjust = 1,
+                size = 4,
+                inherit.aes = TRUE,
+                col = 'white') +
+      theme_minimal() +
+      theme(legend.position = "none",
+            axis.title=element_blank(),
+            panel.border=element_blank())
+
+plot1 <- plot1 +   labs(title = NULL, subtitle = NULL) + theme(
+  plot.margin = margin(0.2, 0, 0.2, 0.02, "npc"))
+
+plot1 
+
+grid.text(
+  "Has the client subscribed a term deposit?", 
+  0, 
+  0.900,
+  just = c("left", "bottom"),
+  gp = gpar(
+    fontsize = 22,
+    fontface = "bold",
+    fontfamily = "Econ Sans Cnd"
+  )
+)
+
+grid.text(
+  "Number of Client Subscribed a Term Deposit, January - December 2012", 
+  0, 
+  0.850,
+  just = c("left", "bottom"),
+  gp = gpar(
+    fontsize = 10,
+    fontfamily = "Econ Sans Cnd"
+  )
+)
+
+grid.lines(
+  x = c(0, 1),
+  y = 1,
+  gp = gpar(col = "#e5001c", lwd = 4)
+)
+
+grid.rect(
+  x = 0,
+  y = 1,
+  width = 0.05,
+  height = 0.025,
+  just = c("left", "top"),
+  gp = gpar(fill = "#e5001c", lwd = 0)
+)
+```
+
+
+### 4 Term Deposit by Year
+Visualisasi ke empat ini digunakan untuk melihat proporsi pelanggan terhadap kepemilikan deposito berjangka setiap bulannya.
+```{r}
+bar_fills <- c("#e5001c", "darkblue")
+    plot2 <- ggplot(bmdat, aes(x=year_month, fill= y))+
+      geom_histogram(stat = 'bin',
+                     bins = 10,
+                     position = "dodge") +
+      scale_fill_manual(values = bar_fills,
+                        guide = "none") +
+      xlab('Period') +
+      ylab('Term Deposit Subscribed') +
+      theme_minimal() 
+
+plot2 <- plot2 +  labs(title = NULL, subtitle = NULL) + theme(
+  plot.margin = margin(0.15, 0, 0.1, 0.01, "npc")) 
+
+plot2
+
+grid.text(
+  "Term Deposit Subsrcibed by Year", 
+  0, 
+  0.900,
+  just = c("left", "bottom"),
+  gp = gpar(
+    fontsize = 22,
+    fontface = "bold",
+    fontfamily = "Econ Sans Cnd"
+  )
+)
+
+grid.text(
+  "Number of Client Subscribed a Term Deposit, January - December 2012 (Y(Blue) / N(Red))", 
+  0, 
+  0.850,
+  just = c("left", "bottom"),
+  gp = gpar(
+    fontsize = 10,
+    fontfamily = "Econ Sans Cnd"
+  )
+)
+
+grid.lines(
+  x = c(0, 1),
+  y = 1,
+  gp = gpar(col = "#e5001c", lwd = 4)
+)
+
+grid.rect(
+  x = 0,
+  y = 1,
+  width = 0.05,
+  height = 0.025,
+  just = c("left", "top"),
+  gp = gpar(fill = "#e5001c", lwd = 0)
+)
+```
+
+
+### 5 Demographic Statistics
+Visualisasi ke lima ini adalah visualisasi yang digunakan untuk melihat proporsi kepemilikan deposito berjangka terhadap demografi pelanggan.
+```{r}
+# Demographic Statistics
+bar_fills <- c("#e5001c", "darkblue")
+    plot3 <- ggplot(bmdat, aes(y=job, fill= y))+ 
+      geom_histogram(stat = 'count',
+                     bins = 20,
+                     position = "dodge") +
+      scale_fill_manual(values = bar_fills,
+                        guide = "none") +
+      theme_minimal() + labs(title = "Job") + 
+      ylab(" ") + xlab(" ")
+      theme(axis.text = element_text(size=4))
+    
+    plot4 <- ggplot(bmdat, aes(y=marital, fill= y))+ 
+      geom_histogram(stat = 'count',
+                     bins = 20,
+                     position = "dodge") +
+      scale_fill_manual(values = bar_fills,
+                        guide = "none") +
+      theme_minimal() + labs(title = "Marital Status") +
+      ylab(" ") + xlab(" ")
+      theme(axis.text = element_text(size=6))
+    
+    plot5 <- ggplot(bmdat, aes(y=education, fill= y))+ 
+      geom_histogram(stat = 'count',
+                     bins = 20,
+                     position = "dodge") +
+      scale_fill_manual(values = bar_fills,
+                        guide = "none") +
+      theme_minimal() + labs(title = "Education") +
+      ylab(" ") + xlab(" ")
+      theme(axis.text = element_text(size=6))
+    
+plot345 <- grid.arrange(plot4, plot5, plot3, nrow = 2, ncol = 2)
+```
+
+
+### 6 Housing and Loan Proportion
+Visualisasi ke enam ini adalah visualisasi yang digunakan untuk melihat proporsi kepemilikan deposito berjangka terhadap kepemilikan pinjaman rumah dan pinjaman pribadi.
+```{r}
+#Create Freq Table and Percent
+labels <- c("No","Yes")
+
+default_dat = as.data.frame(table(bmdat$default))
+default_dat['Percent'] = round(100*(default_dat$Freq/sum(default_dat$Freq)),2)
+housing_dat = as.data.frame(table(bmdat$housing))
+housing_dat['Percent'] = round(100*(housing_dat$Freq/sum(housing_dat$Freq)),2)
+loan_dat = as.data.frame(table(bmdat$loan))
+loan_dat['Percent'] = round(100*(loan_dat$Freq/sum(loan_dat$Freq)),2)
+
+#Create New Sub Data Frame
+all_pie = data.frame(subject <- c('Housing','Housing','Loan','Loan'),
+                     Default <- c('No','Yes','No','Yes'),
+                     value <- c( housing_dat$Freq, loan_dat$Freq),
+                     percent <- c( housing_dat$Percent, loan_dat$Percent))
+
+all_pie$subject <- factor(all_pie$subject)
+all_pie$Default <- factor(all_pie$Default)
+
+#Plot The Chart
+pie_chart <- ggplot(data=all_pie, aes(x=" ", y=value, group=Default, colour=Default, fill=Default, labels=percent)) + geom_bar(width = 1, stat = "identity",) + coord_polar("y", start=0) +  facet_grid(.~ subject) +theme_void() + geom_label(label = percent, nudge_x = 0.25, nudge_y = 0.25, check_overlap = T, color = "black", fill = "white") + scale_fill_manual(values=c("#e5001c", "darkblue"))
+
+pie_chart <- pie_chart +  labs(title = NULL, subtitle = NULL) + theme(
+  plot.margin = margin(0.15, 0, 0.1, 0.01, "npc")) 
+
+pie_chart
+
+grid.text(
+  "Housing and Loan", 
+  0, 
+  0.900,
+  just = c("left", "bottom"),
+  gp = gpar(
+    fontsize = 22,
+    fontface = "bold",
+    fontfamily = "Econ Sans Cnd"
+  )
+)
+
+grid.text(
+  "Number of Client Subscribed a Term Deposit, January - December 2012", 
+  0, 
+  0.850,
+  just = c("left", "bottom"),
+  gp = gpar(
+    fontsize = 10,
+    fontfamily = "Econ Sans Cnd"
+  )
+)
+
+grid.lines(
+  x = c(0, 1),
+  y = 1,
+  gp = gpar(col = "#e5001c", lwd = 4)
+)
+
+grid.rect(
+  x = 0,
+  y = 1,
+  width = 0.05,
+  height = 0.025,
+  just = c("left", "top"),
+  gp = gpar(fill = "#e5001c", lwd = 0)
+)
+```
+
+### 7 Correlation
+Visualisasi ke enam ini adalah visualisasi yang digunakan untuk melihat korelasi antara variabel-variabel numerik, apakah ada kaitan antara setiap variabel atau tidak. Korelasi ini akan mempengaruhi langkah analisis selanjutnya jika dilakukan analisa lebih lanjut seperti penggunaan machine learning untuk prediksi.
+```{r}
+#Correlation between Numeric Variables
+corr_numvar <- ggcorrmat(
+  data = boxdat,
+  type = "parametric", # Person Correlation
+  colors = c("darkred", "white", "steelblue")
+)
+
+corr_numvar <- corr_numvar +  labs(title = NULL, subtitle = NULL) + theme(
+  plot.margin = margin(0.15, 0, 0.1, 0.01, "npc")) 
+
+corr_numvar
+
+grid.text(
+  "Correlation: Numeric Variable", 
+  0, 
+  0.900,
+  just = c("left", "bottom"),
+  gp = gpar(
+    fontsize = 22,
+    fontface = "bold",
+    fontfamily = "Econ Sans Cnd"
+  )
+)
+
+grid.lines(
+  x = c(0, 1),
+  y = 1,
+  gp = gpar(col = "#e5001c", lwd = 4)
+)
+
+grid.rect(
+  x = 0,
+  y = 1,
+  width = 0.05,
+  height = 0.025,
+  just = c("left", "top"),
+  gp = gpar(fill = "#e5001c", lwd = 0)
+)
+```
+Hasil korelasi menunjukkan bahwa hanya variabel jumlah hari yang berlalu setelah klien terakhir dihubungi dari kampanye sebelumnya dan jumlah kontak yang dilakukan sebelum kampanye yang memiliki korelasi cukup tinggi. Hal ini perlu dilakukan tindak lanjut sebelum dilakukan prediksi.
